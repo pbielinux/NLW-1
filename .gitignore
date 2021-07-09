@@ -1,0 +1,6 @@
+# SERVER
+/server/node_modules
+
+
+# WEB
+/web/node_modules
