@@ -2,6 +2,28 @@ import { Request, Response } from 'express';
 import knex from "../database/connection";
 
 class PointsController {
+	async show(request: Request, response: Response) {
+		const { id } = request.params;
+
+		const point = await knex('points').where('id', id).first();
+
+		if (!point) {
+			return response.status(400).json({ message: 'Point not found.'}); // Status code beginning with 4 its an error
+		};
+
+		/*
+		* SELECT * FROM items
+		*			JOIN point_items ON items.id = point_items.item_id
+		*		WHERE point_items.items_id = { id }
+		*/
+		const items = await knex('items')
+			.join('point_items', 'items.id', '=', 'point_items.item_id')
+			.where('point_items.point_id', id)
+			.select('items.title');
+
+		return response.json({ point, items });
+	};
+
 	async create(request: Request, response: Response) {
 		const { name, email, whatsapp, latitude, longitude, city, uf, items } = request.body;
 
@@ -17,23 +39,24 @@ class PointsController {
 			longitude,
 			city,
 			uf
-		}
+		};
 
 		const insertedIds = await trx('points').insert(point);
-
 		const point_id = insertedIds[0];
 		const pointItems = items.map((item_id: number) => {
 			return {
 				item_id,
 				point_id
-			}
+			};
 		});
 		// Relationship with Items Tables
 		await trx('point_items').insert(pointItems);
 
+		await trx.commit();
+
 		return response.json({
 			id: point_id,
-			...point
+			...point,
 		});
 	};
 };
