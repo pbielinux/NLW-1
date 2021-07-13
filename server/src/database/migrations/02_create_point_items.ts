@@ -6,12 +6,14 @@ export async function up(knex: Knex) {
 	return knex.schema.createTable('point_items', table => {
 		table.increments('id').primary();
 
-		table.integer('point_id')
+		table.integer('point_id')	// Create a foreign key
+			.notNullable()
+			.references('id')	// In the id field
+			.inTable('points');	// In table points
+		table.integer('item_id')
 			.notNullable()
 			.references('id')
-			.inTable('points');
-		table.integer('item_id')
-			.notNullable();
+			.inTable('items');
 	});
 };
 
