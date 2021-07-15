@@ -1,7 +1,9 @@
 import React, { useEffect, useState, ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
-import Map from './map';
+import { Map, TileLayer, Marker } from 'react-leaflet';
+import { LeafletMouseEvent } from 'leaflet';
+
 import axios from 'axios';
 import api from '../../services/api';
 
@@ -31,12 +33,22 @@ const CreatePoint = () => {
 	const [ selectedUf, setSelectedUf ] = useState('0');
 	const [ selectedCity, setSelectedCity ] = useState('0');
 
+	const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
+	const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0]);
 
 	useEffect(() => {
 		api.get('items').then(response => {
 			setItems(response.data);
 		})
 	}, []);
+
+	  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(position => {
+      const { latitude, longitude } = position.coords;
+
+      setInitialPosition([latitude, longitude]);
+    });
+  }, []);
 
 	useEffect(() => {
 		axios.get<IBGEUFResponse[]>('https://servicodados.ibge.gov.br/api/v1/localidades/estados')
@@ -71,6 +83,13 @@ const CreatePoint = () => {
 
 		setSelectedCity(city);
 	};
+
+	  function handleMapClick(event: LeafletMouseEvent) {
+    setSelectedPosition([
+      event.latlng.lat,
+      event.latlng.lng,
+    ])
+  }
 
 	return (
 		<div id="page-create-point">
@@ -124,7 +143,14 @@ const CreatePoint = () => {
 						<span>Selecione o endereço no mapa</span>
 					</legend>
 
-					<Map />
+					<Map center={initialPosition} zoom={16} onClick={handleMapClick}>
+            <TileLayer
+              attribution='&amp;copy <a href="http://osm.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+
+            <Marker position={selectedPosition} />
+          </Map>
 
 					<div className="field-group">
 						<div className="field">
