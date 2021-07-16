@@ -1,5 +1,5 @@
-import React, { useEffect, useState, ChangeEvent } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState, ChangeEvent, FormEvent } from 'react';
+import { Link, useHistory } from 'react-router-dom';
 import { FiArrowLeft } from 'react-icons/fi';
 import { Map, TileLayer, Marker } from 'react-leaflet';
 import { LeafletMouseEvent } from 'leaflet';
@@ -32,17 +32,27 @@ const CreatePoint = () => {
 
 	const [ selectedUf, setSelectedUf ] = useState('0');
 	const [ selectedCity, setSelectedCity ] = useState('0');
-
 	const [initialPosition, setInitialPosition] = useState<[number, number]>([0, 0]);
 	const [selectedPosition, setSelectedPosition] = useState<[number, number]>([0, 0]);
 
+	const [ selectedItems, setSelectedItems ] = useState<number[]>([]);
+	const [ formData, setFormData ] = useState({
+		name: '',
+		email: '',
+		whatsapp: ''
+	});
+
+	const history = useHistory();
+
+	// GET ITEMS
 	useEffect(() => {
 		api.get('items').then(response => {
 			setItems(response.data);
 		})
 	}, []);
 
-	  useEffect(() => {
+	// SET INITIAL POSITION
+	useEffect(() => {
     navigator.geolocation.getCurrentPosition(position => {
       const { latitude, longitude } = position.coords;
 
@@ -50,6 +60,7 @@ const CreatePoint = () => {
     });
   }, []);
 
+	// GET UFs
 	useEffect(() => {
 		axios.get<IBGEUFResponse[]>('https://servicodados.ibge.gov.br/api/v1/localidades/estados')
 			.then(response => {
@@ -59,6 +70,7 @@ const CreatePoint = () => {
 			});
 	});
 
+	// GET CITIES
 	useEffect(() => {
 		// Load the city when UF changes
 		if (selectedUf === '0') {
@@ -83,13 +95,54 @@ const CreatePoint = () => {
 
 		setSelectedCity(city);
 	};
-
-	  function handleMapClick(event: LeafletMouseEvent) {
+	function handleMapClick(event: LeafletMouseEvent) {
     setSelectedPosition([
       event.latlng.lat,
       event.latlng.lng,
     ])
   }
+	function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
+		const { name, value } = event.target;
+
+		// [name] >==>> [] to use variable as property name
+		setFormData({ ...formData, [name]: value });
+	};
+	function handleSelectItem(id: number) {
+		const alreadySelected = selectedItems.findIndex(item => item === id);
+
+		if (alreadySelected >= 0) {
+			const filteredItems = selectedItems.filter(item => item !== id);
+
+			setSelectedItems(filteredItems);
+		} else {
+			setSelectedItems([...selectedItems, id]);
+		};
+	};
+	async function handleSubmit(event: FormEvent) {
+		event.preventDefault();	// To avoid redirecting to another page
+
+		const { name, email, whatsapp } = formData;
+		const uf = selectedUf;
+		const city = selectedCity;
+		const [ latitude, longitude ] = selectedPosition;
+		const items = selectedItems;
+
+		const data = {
+			name,
+			email,
+			whatsapp,
+			uf,
+			city,
+			latitude,
+			longitude,
+			items
+		};
+
+	await api.post('points', data);
+
+	alert('Ponto de Coleta Criado!');
+	history.push('/');
+	};
 
 	return (
 		<div id="page-create-point">
@@ -100,7 +153,7 @@ const CreatePoint = () => {
 					Voltar para home
 				</Link>
 			</header>
-			<form>
+			<form onSubmit={handleSubmit}>
 				<h1>Cadastro do<br /> ponto de coleta</h1>
 
 				<fieldset>
@@ -114,6 +167,7 @@ const CreatePoint = () => {
 							type="text"
 							name="name"
 							id="name"
+							onChange={handleInputChange}
 						/>
 					</div>
 
@@ -124,14 +178,16 @@ const CreatePoint = () => {
 								type="email"
 								name="email"
 								id="email"
+								onChange={handleInputChange}
 							/>
 						</div>
 						<div className="field">
-							<label htmlFor="name">Whatsapp</label>
+							<label htmlFor="whatsapp">Whatsapp</label>
 							<input
 								type="text"
 								name="whatsapp"
 								id="whatsapp"
+								onChange={handleInputChange}
 							/>
 						</div>
 					</div>
@@ -192,7 +248,11 @@ const CreatePoint = () => {
 
 						<ul className="items-grid">
 							{items.map(item => (
-								<li key={item.id}>
+								<li
+									key={item.id}
+									onClick={() => handleSelectItem(item.id)}
+									className={selectedItems.includes(item.id) ? 'selected' : ''}
+								>
 								<img src={item.image_url} alt={item.title} />
 								<span>{item.title}</span>
 								</li>
